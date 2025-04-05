@@ -1,0 +1,25 @@
+{
+    "id": "marking-time",
+    "title": "Marking Time",
+    "description": "Automatically generate timestamp files marking noteworthy events in a session to sync with Da Vinci Resolve",
+    "version": "0.1.0",
+    "compatibility": {
+      "minimum": "12",
+      "verified": "12"
+    },
+    "authors": [
+      {
+        "name": "control-group"
+      }
+    ],
+    "esmodules": [
+      "scripts/main.js"
+    ],
+    "styles": [
+      "styles/marking-time.css"
+    ],
+    "url": "https://github.com/control-group/marking-time",
+    "manifest": "https://github.com/control-group/marking-time/releases/latest/download/module.json",
+    "download": "https://github.com/control-group/marking-time/releases/latest/download/module.zip",
+    "license": "MIT"
+  }

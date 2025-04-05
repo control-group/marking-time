@@ -1,0 +1,33 @@
+/* Marking Time CSS */
+
+.marking-time-sync-marker {
+    background-color: #ff6600;
+    color: white;
+    padding: 10px;
+    border-radius: 5px;
+    margin-bottom: 5px;
+    text-align: center;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
+  }
+  
+  .marking-time-sync-marker h3 {
+    margin: 0;
+    padding: 0;
+    font-size: 1.2em;
+  }
+  
+  .marking-time-sync-marker p {
+    margin: 5px 0 0 0;
+    font-size: 1.1em;
+    font-family: monospace;
+  }
+  
+  /* Button styles */
+  .scene-control[data-control="marking-time"] .control-tool i {
+    color: #ff6600;
+  }
+  
+  .scene-control[data-control="marking-time"] .control-tool.active i {
+    color: #ffcc00;
+    text-shadow: 0 0 8px #ff6600;
+  }
