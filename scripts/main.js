@@ -8,6 +8,7 @@ class MarkingTime {
     static MODULE_NAME = 'marking-time';
     static SESSION_START_TIME = 'sessionStartTime';
     static TIMESTAMPS = 'timestamps';
+    static IS_TRACKING = 'isTracking';
     static DEFAULT_SETTINGS = {
       trackCombat: true,
       trackSceneChanges: true,
@@ -24,8 +25,8 @@ class MarkingTime {
       this.registerSettings();
       
       // Initialize core functionalities
-      this.timestamps = [];
-      this.isTracking = false;
+      this.timestamps = game.settings.get(this.MODULE_NAME, this.TIMESTAMPS) || [];
+      this.isTracking = game.settings.get(this.MODULE_NAME, this.IS_TRACKING);
       
       // Create UI for control panel
       this.setupUI();
@@ -58,6 +59,16 @@ class MarkingTime {
         config: false,
         type: Object,
         default: []
+      });
+      
+      // Tracking state
+      game.settings.register(this.MODULE_NAME, this.IS_TRACKING, {
+        name: "Tracking Active",
+        hint: "Whether timestamp tracking is currently active",
+        scope: "world",
+        config: false,
+        type: Boolean,
+        default: false
       });
       
       // Event tracking options
@@ -104,6 +115,10 @@ class MarkingTime {
     static setupUI() {
       // Add a button to the scene controls
       Hooks.on('getSceneControlButtons', (controls) => {
+        // Always fetch the current tracking state from settings
+        const isCurrentlyTracking = game.settings.get(this.MODULE_NAME, this.IS_TRACKING);
+        console.log(`${this.MODULE_NAME} | Setting up UI, tracking state:`, isCurrentlyTracking);
+        
         controls.push({
           name: 'marking-time',
           title: 'Marking Time',
@@ -112,8 +127,8 @@ class MarkingTime {
           tools: [
             {
               name: 'start-tracking',
-              title: this.isTracking ? 'Stop Tracking' : 'Start Tracking', 
-              icon: this.isTracking ? 'fas fa-stop' : 'fas fa-play',
+              title: isCurrentlyTracking ? 'Stop Tracking' : 'Start Tracking', 
+              icon: isCurrentlyTracking ? 'fas fa-stop' : 'fas fa-play',
               onClick: () => this.toggleTracking(),
               button: true
             },
@@ -123,7 +138,8 @@ class MarkingTime {
               icon: 'fas fa-bookmark',
               onClick: () => this.markImportantMoment(),
               button: true,
-              active: this.isTracking
+              active: isCurrentlyTracking,
+              disabled: !isCurrentlyTracking // Disable if not tracking
             },
             {
               name: 'export-timestamps',
@@ -161,14 +177,20 @@ class MarkingTime {
      * Toggle timestamp tracking on/off
      */
     static toggleTracking() {
-      if (this.isTracking) {
+      const currentState = game.settings.get(this.MODULE_NAME, this.IS_TRACKING);
+      console.log(`${this.MODULE_NAME} | Current tracking state before toggle:`, currentState);
+      
+      if (currentState) {
         this.stopTracking();
       } else {
         this.startTracking();
       }
       
-      // Refresh the UI to update button states
-      ui.controls.render();
+      const newState = game.settings.get(this.MODULE_NAME, this.IS_TRACKING);
+      console.log(`${this.MODULE_NAME} | New tracking state after toggle:`, newState);
+      
+      // Force a complete re-render of the controls
+      ui.controls.render(true);
     }
   
     /**
@@ -186,6 +208,7 @@ class MarkingTime {
       
       // Set tracking flag
       this.isTracking = true;
+      game.settings.set(this.MODULE_NAME, this.IS_TRACKING, true);
       
       // Create a visible marker in chat
       this.createSyncMarker(startTime);
@@ -227,6 +250,7 @@ class MarkingTime {
       
       // Set tracking flag
       this.isTracking = false;
+      game.settings.set(this.MODULE_NAME, this.IS_TRACKING, false);
       
       ui.notifications.info("Marking Time: Session tracking ended");
     }

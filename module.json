@@ -2,7 +2,7 @@
     "id": "marking-time",
     "title": "Marking Time",
     "description": "Automatically generate timestamp files marking noteworthy events in a session to sync with Da Vinci Resolve",
-    "version": "0.1.1",
+    "version": "0.1.2",
     "compatibility": {
       "minimum": "12",
       "verified": "12"
