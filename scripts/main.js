@@ -14,7 +14,7 @@ class MarkingTime {
       trackSceneChanges: true,
       trackDiceRolls: true,
       trackSpellCasting: true,
-      viewerUserId: '',
+      viewerUsername: '',
     };
   
     /**
@@ -35,6 +35,9 @@ class MarkingTime {
           
           console.log(`${this.MODULE_NAME} | Game ready, initialized with tracking state:`, this.isTracking);
           
+            // Register hooks
+          this.registerHooks();
+
           // Force a control update once we know the actual state
           ui.controls.initialize();
         });
@@ -108,9 +111,9 @@ class MarkingTime {
         default: true
       });
       
-      game.settings.register(this.MODULE_NAME, 'viewerUserId', {
-        name: "Viewer User ID",
-        hint: "The User ID of the 'Viewer' account used for recording (leave empty for no targeting)",
+      game.settings.register(this.MODULE_NAME, 'viewerUsername', {
+        name: "Viewer User Name",
+        hint: "The username of the 'Viewer' account used for recording (leave empty for no targeting)",
         scope: "world",
         config: true,
         type: String,
@@ -253,26 +256,38 @@ class MarkingTime {
      * Create a sync marker in the chat that will be visible in the recording
      */
     static createSyncMarker(startTime) {
-      // Format time for display: HH:MM:SS format
-      const timeString = startTime.toLocaleTimeString();
-      
-      // Get the viewer user ID if specified
-      const viewerUserId = game.settings.get(this.MODULE_NAME, 'viewerUserId');
-      const whisperArray = viewerUserId ? [viewerUserId] : [];
-      
-      // Create a styled chat message
-      ChatMessage.create({
-        content: `<div class="marking-time-sync-marker" style="background-color: #ff6600; color: white; padding: 5px; border-radius: 5px;">
-                    <h3>TIMESTAMP TRACKING STARTED</h3>
-                    <p>Clock Time: ${timeString}</p>
-                  </div>`,
-        user: game.user.id,
-        whisper: whisperArray
-      });
-      
-      // Record this as the first timestamp
-      this.recordTimestamp('SYNC_POINT', 'Session tracking started', 'Reference point for timeline sync');
-    }
+        // Format time for display: HH:MM:SS format
+        const timeString = startTime.toLocaleTimeString();
+        
+        // Get the viewer username if specified
+        const viewerUsername = game.settings.get(this.MODULE_NAME, 'viewerUsername');
+        
+        // If a username is specified, find the corresponding user ID
+        let whisperArray = [];
+        if (viewerUsername && viewerUsername.trim() !== '') {
+          // Find the user with the matching name
+          const viewerUser = game.users.find(u => u.name === viewerUsername);
+          if (viewerUser) {
+            whisperArray = [viewerUser.id];
+          } else {
+            // Username not found, show a warning
+            ui.notifications.warn(`Marking Time: User "${viewerUsername}" not found, sending to all users`);
+          }
+        }
+        
+        // Create a styled chat message
+        ChatMessage.create({
+          content: `<div class="marking-time-sync-marker" style="background-color: #ff6600; color: white; padding: 5px; border-radius: 5px;">
+                      <h3>TIMESTAMP TRACKING STARTED</h3>
+                      <p>Clock Time: ${timeString}</p>
+                    </div>`,
+          user: game.user.id,
+          whisper: whisperArray
+        });
+        
+        // Record this as the first timestamp
+        this.recordTimestamp('SYNC_POINT', 'Session tracking started', 'Reference point for timeline sync');
+      }
   
     /**
      * Stop tracking session timestamps
@@ -296,7 +311,7 @@ class MarkingTime {
           return false;
         }
       }
-      
+
     /**
      * Record a timestamp
      */
