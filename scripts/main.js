@@ -21,22 +21,27 @@ class MarkingTime {
      * Initialize the module
      */
     static init() {
-      // Register module settings
-      this.registerSettings();
-      
-      // Initialize core functionalities
-      this.timestamps = game.settings.get(this.MODULE_NAME, this.TIMESTAMPS) || [];
-      this.isTracking = game.settings.get(this.MODULE_NAME, this.IS_TRACKING);
-      
-      // Create UI for control panel
-      this.setupUI();
-      
-      // Register hooks
-      this.registerHooks();
-      
-      console.log(`${this.MODULE_NAME} | Initialized`);
-    }
-  
+        // Register module settings
+        this.registerSettings();
+        
+        // Set up UI - this doesn't access settings
+        this.setupUI();
+        
+        // Wait for the game to be ready before initializing state
+        Hooks.once('ready', () => {
+          // Initialize core functionalities after game is ready
+          this.timestamps = game.settings.get(this.MODULE_NAME, this.TIMESTAMPS) || [];
+          this.isTracking = game.settings.get(this.MODULE_NAME, this.IS_TRACKING);
+          
+          console.log(`${this.MODULE_NAME} | Game ready, initialized with tracking state:`, this.isTracking);
+          
+          // Force a control update once we know the actual state
+          ui.controls.initialize();
+        });
+        
+        console.log(`${this.MODULE_NAME} | Initialized`);
+      }
+
     /**
      * Register module settings
      */
@@ -70,7 +75,11 @@ class MarkingTime {
         type: Boolean,
         default: false
       });
-      
+
+      // Verification log
+      console.log(`${this.MODULE_NAME} | Settings registered. Current tracking state:`, 
+      game.settings.get(this.MODULE_NAME, this.IS_TRACKING));
+        
       // Event tracking options
       game.settings.register(this.MODULE_NAME, 'trackCombat', {
         name: "Track Combat",
@@ -157,64 +166,88 @@ class MarkingTime {
      * Register hooks for various events
      */
     static registerHooks() {
-      // Register hooks depending on settings
-      if (game.settings.get(this.MODULE_NAME, 'trackCombat')) {
-        Hooks.on('combatStart', this.onCombatStart.bind(this));
-        Hooks.on('combatEnd', this.onCombatEnd.bind(this));
-        Hooks.on('combatRound', this.onCombatRound.bind(this));
+        // Wait for the game to be ready before registering event hooks
+        Hooks.once('ready', () => {
+          // Register hooks depending on settings
+          if (game.settings.get(this.MODULE_NAME, 'trackCombat')) {
+            Hooks.on('combatStart', this.onCombatStart.bind(this));
+            Hooks.on('combatEnd', this.onCombatEnd.bind(this));
+            Hooks.on('combatRound', this.onCombatRound.bind(this));
+          }
+          
+          if (game.settings.get(this.MODULE_NAME, 'trackSceneChanges')) {
+            Hooks.on('canvasReady', this.onSceneChange.bind(this));
+          }
+          
+          if (game.settings.get(this.MODULE_NAME, 'trackDiceRolls')) {
+            Hooks.on('createChatMessage', this.onChatMessage.bind(this));
+          }
+        });
       }
-      
-      if (game.settings.get(this.MODULE_NAME, 'trackSceneChanges')) {
-        Hooks.on('canvasReady', this.onSceneChange.bind(this));
-      }
-      
-      if (game.settings.get(this.MODULE_NAME, 'trackDiceRolls')) {
-        Hooks.on('createChatMessage', this.onChatMessage.bind(this));
-      }
-    }
   
     /**
      * Toggle timestamp tracking on/off
      */
     static toggleTracking() {
-      const currentState = game.settings.get(this.MODULE_NAME, this.IS_TRACKING);
-      console.log(`${this.MODULE_NAME} | Current tracking state before toggle:`, currentState);
+        // Make sure game is ready
+        if (!game.ready) {
+          ui.notifications.error("Marking Time: Cannot toggle tracking until game is fully loaded");
+          return;
+        }
       
-      if (currentState) {
-        this.stopTracking();
-      } else {
-        this.startTracking();
+        const currentState = game.settings.get(this.MODULE_NAME, this.IS_TRACKING);
+        console.log(`${this.MODULE_NAME} | Current tracking state before toggle:`, currentState);
+        
+        try {
+          if (currentState) {
+            this.stopTracking();
+          } else {
+            this.startTracking();
+          }
+          
+          // Force UI update after a small delay to ensure settings are updated
+          setTimeout(() => {
+            const newState = game.settings.get(this.MODULE_NAME, this.IS_TRACKING);
+            console.log(`${this.MODULE_NAME} | New tracking state after toggle:`, newState);
+            ui.controls.initialize();
+          }, 100);
+        } catch (error) {
+          console.error(`${this.MODULE_NAME} | Error toggling tracking:`, error);
+          ui.notifications.error("Marking Time: Error toggling tracking state");
+        }
       }
-      
-      const newState = game.settings.get(this.MODULE_NAME, this.IS_TRACKING);
-      console.log(`${this.MODULE_NAME} | New tracking state after toggle:`, newState);
-      
-      // Force a complete re-render of the controls
-      ui.controls.render(true);
-    }
-  
+
     /**
      * Start tracking session timestamps
      */
     static startTracking() {
-      const startTime = new Date();
-      
-      // Store the start time
-      game.settings.set(this.MODULE_NAME, this.SESSION_START_TIME, startTime.getTime());
-      
-      // Reset the timestamps array
-      this.timestamps = [];
-      game.settings.set(this.MODULE_NAME, this.TIMESTAMPS, this.timestamps);
-      
-      // Set tracking flag
-      this.isTracking = true;
-      game.settings.set(this.MODULE_NAME, this.IS_TRACKING, true);
-      
-      // Create a visible marker in chat
-      this.createSyncMarker(startTime);
-      
-      ui.notifications.info("Marking Time: Session tracking started");
-    }
+        if (!game.ready) return false;
+        
+        const startTime = new Date();
+        
+        try {
+          // Store the start time
+          game.settings.set(this.MODULE_NAME, this.SESSION_START_TIME, startTime.getTime());
+          
+          // Reset the timestamps array
+          this.timestamps = [];
+          game.settings.set(this.MODULE_NAME, this.TIMESTAMPS, this.timestamps);
+          
+          // Set tracking flag
+          this.isTracking = true;
+          game.settings.set(this.MODULE_NAME, this.IS_TRACKING, true);
+          
+          // Create a visible marker in chat
+          this.createSyncMarker(startTime);
+          
+          ui.notifications.info("Marking Time: Session tracking started");
+          return true;
+        } catch (error) {
+          console.error(`${this.MODULE_NAME} | Error starting tracking:`, error);
+          ui.notifications.error("Marking Time: Error starting session tracking");
+          return false;
+        }
+      }
   
     /**
      * Create a sync marker in the chat that will be visible in the recording
@@ -245,22 +278,31 @@ class MarkingTime {
      * Stop tracking session timestamps
      */
     static stopTracking() {
-      // Record the end timestamp
-      this.recordTimestamp('SESSION_END', 'Session tracking ended', 'Final timestamp');
+        if (!game.ready) return false;
+        
+        try {
+          // Record the end timestamp
+          this.recordTimestamp('SESSION_END', 'Session tracking ended', 'Final timestamp');
+          
+          // Set tracking flag
+          this.isTracking = false;
+          game.settings.set(this.MODULE_NAME, this.IS_TRACKING, false);
+          
+          ui.notifications.info("Marking Time: Session tracking ended");
+          return true;
+        } catch (error) {
+          console.error(`${this.MODULE_NAME} | Error stopping tracking:`, error);
+          ui.notifications.error("Marking Time: Error stopping session tracking");
+          return false;
+        }
+      }
       
-      // Set tracking flag
-      this.isTracking = false;
-      game.settings.set(this.MODULE_NAME, this.IS_TRACKING, false);
-      
-      ui.notifications.info("Marking Time: Session tracking ended");
-    }
-  
     /**
      * Record a timestamp
      */
     static recordTimestamp(type, description, details = '') {
       // Only record if we're tracking
-      if (!this.isTracking) return;
+      if (!this.isTracking || !game.ready) return;
       
       const currentTime = new Date();
       const startTime = new Date(game.settings.get(this.MODULE_NAME, this.SESSION_START_TIME));
